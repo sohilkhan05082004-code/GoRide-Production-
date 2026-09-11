@@ -1,4 +1,4 @@
-nname: Build GoRide APK
+name: Build GoRide APK
 
 on:
   workflow_dispatch:
