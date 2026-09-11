@@ -14,6 +14,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Find and extract GoRide ZIP
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
+          echo "Using ZIP: $ZIP"
+          mkdir -p goride_work
+          unzip -q "$ZIP" -d goride_work
+
+      - name: Find Android project
+        run: |
+          GRADLEW=$(find goride_work -type f -name "gradlew" | head -1)
+          if [ -z "$GRADLEW" ]; then
+            echo "gradlew not found"
+            find goride_work -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          chmod +x "$GRADLEW"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -21,23 +40,21 @@ jobs:
           java-version: '17'
           cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK 35
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Build APK
-        working-directory: goride_work
-        run: gradle --no-daemon assembleDebug
+        run: |
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GoRide-APK
-          path: goride_work/app/build/outputs/apk/debug/app-debug.apk
+          path: '**/app-debug.apk'
+          if-no-files-found: error
