@@ -16,10 +16,10 @@ jobs:
 
       - name: Find and extract GoRide ZIP
         run: |
-          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" -printf "%T@ %p\n" | sort -nr | head -1 | cut -d' ' -f2-)
-          echo "Using ZIP: $ZIP"
-          mkdir -p goride_work
-          unzip -q "$ZIP" -d goride_work
+          ZIP=$(find . -maxdepth 1 -type f 
+          -name          
+          "*.ZIP=$(find . -maxdepth 1 -type f 
+          -name "GoRide_JVM17_Fixed.zip" -print -quit)
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
