@@ -16,10 +16,23 @@ jobs:
 
       - name: Find and extract GoRide ZIP
         run: |
-          ZIP=$(find . -maxdepth 1 -type f 
-          -name          
-          "*.ZIP=$(find . -maxdepth 1 -type f 
-          -name "GoRide_JVM17_Fixed.zip" -print -quit)
+          ZIP="GoRide_JVM17_Fixed.zip"
+          echo "Using ZIP: $ZIP"
+          test -f "$ZIP"
+          rm -rf goride_work
+          mkdir -p goride_work
+          unzip -q "$ZIP" -d goride_work
+
+      - name: Find Android project
+        run: |
+          PROJECT_DIR=$(find goride_work -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1 | xargs -r dirname)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android project not found"
+            find goride_work -maxdepth 3 -type f | head -100
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -34,20 +47,19 @@ jobs:
       - name: Install Android SDK 35
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses || true
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
+      - name: Make Gradle executable
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: chmod +x gradlew
 
       - name: Build APK
-        working-directory: goride_work
-        run: |
-          gradle --no-daemon assembleDebug
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: GoRide-APK
-          path: 'goride_work/**/build/outputs/apk/debug/*.apk'
+          path: ${{ env.PROJECT_DIR }}/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
