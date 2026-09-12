@@ -24,13 +24,8 @@ jobs:
             exit 1
           fi
 
-          echo "Using ZIP: $ZIP_FILE"
-
           mkdir -p goride-project
           unzip -o "$ZIP_FILE" -d goride-project
-
-          echo "Extracted files:"
-          find goride-project -maxdepth 3 -type f | head -100
 
       - name: Find Android project
         shell: bash
@@ -44,8 +39,8 @@ jobs:
             exit 1
           fi
 
-          echo "Android project found at: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -63,9 +58,31 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Fix Java and Kotlin JVM targets
+        shell: bash
+        run: |
+          cat > "$GITHUB_WORKSPACE/jvm-fix.gradle" <<'EOF'
+          allprojects {
+              tasks.withType(JavaCompile).configureEach {
+                  sourceCompatibility = "17"
+                  targetCompatibility = "17"
+              }
+
+              tasks.configureEach {
+                  if (name.contains("Kotlin")) {
+                      try {
+                          kotlinOptions.jvmTarget = "17"
+                      } catch (Exception ignored) {
+                      }
+                  }
+              }
+          }
+          EOF
+
       - name: Build APK
         run: |
-          gradle -p "$PROJECT_DIR" assembleDebug
+          gradle -I "$GITHUB_WORKSPACE/jvm-fix.gradle" \
+            -p "$PROJECT_DIR" assembleDebug
 
       - name: Prepare APK
         shell: bash
@@ -80,8 +97,7 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" GoRide-debug.apk
-          echo "APK created successfully"
+          cp "$APK" "$GITHUB_WORKSPACE/GoRide-debug.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
