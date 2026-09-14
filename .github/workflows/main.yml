@@ -20,25 +20,44 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: "8.11.1"
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Install Android SDK
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract GoRide project
+        run: |
+          mkdir -p extracted
+          unzip -o GoRide_Free_Build_Ready.zip -d extracted
+
+          echo "Files after extraction:"
+          find extracted -maxdepth 4 -type f | head -100
+
+          PROJECT_DIR=$(find extracted -type f \( -name "settings.gradle.kts" -o -name "settings.gradle" \) -print -quit | xargs -r dirname)
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "ERROR: Gradle project not found."
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Gradle project found at: $PROJECT_DIR"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
 
       - name: Build APK
         run: |
+          cd "$PROJECT_DIR"
           gradle --no-daemon --stacktrace clean assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: GoRide-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          name: GoRide-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
